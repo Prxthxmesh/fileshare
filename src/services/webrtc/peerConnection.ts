@@ -121,6 +121,14 @@ export class PeerSession extends Emitter<PeerEvents> {
   remoteConfirmed = false;
   /** True when the remote fingerprint matched a previously verified device. */
   recognised = false;
+  /**
+   * Set when this connection was negotiated through the encrypted quick-connect
+   * channel of a linked device. The SDP (and so the DTLS fingerprint) arrived
+   * authenticated by the shared link key, so no code comparison is needed.
+   */
+  viaLinkDeviceId: string | null = null;
+  /** This device's random half of a new link secret, sent after verification. */
+  linkHalf: string | null = null;
   connectedAt: number | null = null;
   failureReason: string | null = null;
 
@@ -156,9 +164,11 @@ export class PeerSession extends Emitter<PeerEvents> {
   /** Receiving device: creates the offer shown as a QR code. */
   static async createOffer(
     options: PeerOptions,
+    extra: { rendezvous?: string; viaLinkDeviceId?: string } = {},
   ): Promise<{ session: PeerSession; payload: PairingPayload }> {
     const sid = randomId(9);
     const session = new PeerSession('offerer', sid, pairingExpiry(), options);
+    session.viaLinkDeviceId = extra.viaLinkDeviceId ?? null;
     try {
       const release = await exposeHostCandidatesIfPermitted();
       try {
@@ -168,6 +178,7 @@ export class PeerSession extends Emitter<PeerEvents> {
         release();
       }
       const payload = session.buildPayload('offer');
+      if (extra.rendezvous) payload.rv = extra.rendezvous;
       session.setPhase('awaiting-answer');
       return { session, payload };
     } catch (err) {
@@ -185,6 +196,7 @@ export class PeerSession extends Emitter<PeerEvents> {
     offer: PairingPayload,
     options: PeerOptions,
     activeCamera?: MediaStream | null,
+    viaLinkDeviceId?: string,
   ): Promise<{ session: PeerSession; payload: PairingPayload }> {
     if (offer.k !== 'offer') {
       throw new PairingCodeError(
@@ -205,6 +217,7 @@ export class PeerSession extends Emitter<PeerEvents> {
       offer.exp + PAIRING_CLOCK_SKEW_MS,
       options,
     );
+    session.viaLinkDeviceId = viaLinkDeviceId ?? null;
     session.setRemoteFromPayload(offer);
     try {
       const remoteSdp = sdpFromPayload(offer.sdp);

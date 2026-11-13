@@ -60,6 +60,7 @@ export type ControlMessage =
   | { t: 'cancel'; transferId: string; reason?: string }
   | { t: 'text'; id: string; content: string }
   | { t: 'text-ack'; id: string }
+  | { t: 'link'; half: string }
   | { t: 'bye' };
 
 export type ControlType = ControlMessage['t'];
@@ -215,6 +216,10 @@ export function parseControlMessage(text: string): ControlMessage {
     case 'text-ack':
       if (!isId(m.id)) throw new ProtocolError('text-ack');
       return { t: 'text-ack', id: m.id };
+    case 'link':
+      if (typeof m.half !== 'string' || !/^[0-9a-f]{64}$/.test(m.half))
+        throw new ProtocolError('link');
+      return { t: 'link', half: m.half };
     case 'bye':
       return { t: 'bye' };
     default:

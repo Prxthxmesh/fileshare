@@ -6,9 +6,12 @@ import { Banner, Spinner } from '@/components/common/Feedback';
 import { QrDisplay } from '@/components/pairing/QrDisplay';
 import { QrScanner } from '@/components/pairing/QrScanner';
 import { VerificationPanel } from '@/components/pairing/VerificationPanel';
+import { hexToRendezvous, randomSecretHex } from '@/services/link/linkCrypto';
+import { linkService } from '@/services/link/linkService';
 import { PartCollector, PairingCodeError } from '@/services/pairing/pairingSession';
 import { peerManager } from '@/services/webrtc/peerManager';
 import { isReadyPhase, useConnectionStore } from '@/stores/connectionStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 import { useNow } from '@/hooks/useNow';
 import { cx } from '@/utils/cx';
 
@@ -31,6 +34,9 @@ export function PairingScreen({ mode }: { mode: Mode }) {
   const [scanningReply, setScanningReply] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [progress, setProgress] = useState<{ received: number; total: number } | null>(null);
+  /** Scan flow: the reply went out through quick connect, so no second scan should be needed. */
+  const [reply, setReply] = useState<'none' | 'sending' | 'sent' | 'failed'>('none');
+  const quickConnect = useSettingsStore((s) => s.settings.quickConnect);
   const peer = useConnectionStore((s) => (sessionId ? s.peers[sessionId] : undefined));
   const collector = useRef(new PartCollector());
   const camera = useRef<MediaStream | null>(null);
@@ -41,9 +47,13 @@ export function PairingScreen({ mode }: { mode: Mode }) {
   useEffect(() => {
     if (mode !== 'show') return;
     let cancelled = false;
+    let stopListening: (() => void) | null = null;
+    // A one-time rendezvous secret in the QR lets the scanning device send its
+    // reply back through the encrypted relay — no second scan needed.
+    const rv = quickConnect ? hexToRendezvous(randomSecretHex(16)) : undefined;
     peerManager
-      .startOffer()
-      .then(({ session, parts: p }) => {
+      .startOffer(rv)
+      .then(async ({ session, parts: p }) => {
         if (cancelled) {
           peerManager.dismiss(session.id);
           return;
@@ -51,12 +61,21 @@ export function PairingScreen({ mode }: { mode: Mode }) {
         sessionRef.current = session.id;
         setSessionId(session.id);
         setParts(p);
+        if (rv) {
+          stopListening = await linkService.listenForPairingReply(rv, (sid, data) => {
+            const view = useConnectionStore.getState().peers[session.id];
+            if (sid !== session.sid || view?.phase !== 'awaiting-answer') return;
+            peerManager.applyAnswer(session.id, data).catch((e) => setError(messageOf(e)));
+          });
+          if (cancelled) stopListening();
+        }
       })
       .catch((e) => !cancelled && setError(messageOf(e)));
     return () => {
       cancelled = true;
+      stopListening?.();
     };
-  }, [mode, attempt]);
+  }, [mode, attempt, quickConnect]);
 
   // Leaving the screen before the connection is verified abandons the attempt.
   useEffect(
@@ -90,13 +109,21 @@ export function PairingScreen({ mode }: { mode: Mode }) {
       setError(null);
       try {
         if (mode === 'scan') {
-          const { session, parts: reply } = await peerManager.answerOffer(
-            result.data,
-            camera.current,
-          );
+          const {
+            session,
+            parts: reply,
+            data,
+            offer,
+          } = await peerManager.answerOffer(result.data, camera.current);
           sessionRef.current = session.id;
           setSessionId(session.id);
           setParts(reply);
+          if (offer.rv) {
+            setReply('sending');
+            void linkService
+              .sendPairingReply(offer.rv, offer.sid, data)
+              .then((ok) => setReply(ok ? 'sent' : 'failed'));
+          }
         } else if (sessionId) {
           await peerManager.applyAnswer(sessionId, result.data);
           setScanningReply(false);
@@ -121,6 +148,7 @@ export function PairingScreen({ mode }: { mode: Mode }) {
     setParts(null);
     setError(null);
     setScanningReply(false);
+    setReply('none');
     collector.current.reset();
     lastFailedText.current = null;
     setAttempt((a) => a + 1);
@@ -136,8 +164,8 @@ export function PairingScreen({ mode }: { mode: Mode }) {
   const failed = phase === 'failed' || phase === 'closed';
   const steps =
     mode === 'show'
-      ? ['Show code', 'Scan reply', 'Confirm']
-      : ['Scan code', 'Show reply', 'Confirm'];
+      ? ['Show code', quickConnect ? 'Connect' : 'Scan reply', 'Confirm']
+      : ['Scan code', quickConnect ? 'Connect' : 'Show reply', 'Confirm'];
 
   return (
     <div className="safe-top mx-auto flex min-h-dvh max-w-xl flex-col pb-8">
@@ -212,6 +240,7 @@ export function PairingScreen({ mode }: { mode: Mode }) {
           onBack={() => setScanningReply(false)}
           onCode={handleCode}
           onNewCode={restart}
+          autoReply={quickConnect}
         />
       ) : (
         <ScanFlow
@@ -224,6 +253,7 @@ export function PairingScreen({ mode }: { mode: Mode }) {
           onCode={handleCode}
           onStream={(s) => (camera.current = s)}
           onRescan={restart}
+          reply={reply}
         />
       )}
     </div>
@@ -242,6 +272,7 @@ function ShowFlow(props: {
   onBack: () => void;
   onCode: (text: string, manual?: boolean) => void;
   onNewCode: () => void;
+  autoReply: boolean;
 }) {
   const now = useNow(1000);
   if (props.connecting) return <Connecting name={props.remoteName} />;
@@ -274,8 +305,10 @@ function ShowFlow(props: {
     <div className="space-y-6">
       <p className="text-center text-body text-text-2">
         On the other device, open FileShare and tap{' '}
-        <strong className="text-text">Send › Scan Device</strong>. Then scan the code it shows in
-        reply.
+        <strong className="text-text">Send › Scan Device</strong>.{' '}
+        {props.autoReply
+          ? 'It connects automatically after scanning.'
+          : 'Then scan the code it shows in reply.'}
       </p>
       <QrDisplay
         parts={props.parts}
@@ -286,6 +319,18 @@ function ShowFlow(props: {
         <Button size="lg" block icon={<RefreshCw className="size-5" />} onClick={props.onNewCode}>
           Create New Code
         </Button>
+      ) : props.autoReply ? (
+        <div className="space-y-1 text-center">
+          <p
+            className="flex items-center justify-center gap-2 text-callout text-text-2"
+            role="status"
+          >
+            <Spinner className="size-4" /> Waiting for the other device to scan…
+          </p>
+          <Button variant="plain" onClick={props.onScanReply}>
+            No internet? Scan Its Reply Code
+          </Button>
+        </div>
       ) : (
         <Button size="lg" block onClick={props.onScanReply}>
           Scan Reply
@@ -305,7 +350,9 @@ function ScanFlow(props: {
   onCode: (text: string, manual?: boolean) => void;
   onStream: (s: MediaStream | null) => void;
   onRescan: () => void;
+  reply: 'none' | 'sending' | 'sent' | 'failed';
 }) {
+  const [showCode, setShowCode] = useState(false);
   if (!props.parts) {
     return (
       <QrScanner
@@ -318,8 +365,30 @@ function ScanFlow(props: {
       />
     );
   }
+  const name = props.remoteName ?? 'the other device';
+  if ((props.reply === 'sending' || props.reply === 'sent') && !showCode) {
+    return (
+      <div className="flex flex-col items-center gap-3 py-12 text-center" role="status">
+        <Spinner className="size-7" />
+        <p className="text-headline font-semibold text-text">
+          {props.connecting || props.reply === 'sent' ? `Connecting to ${name}…` : 'Sending reply…'}
+        </p>
+        <p className="max-w-xs text-callout text-text-2">
+          No need to scan anything on {name}. This usually takes a few seconds.
+        </p>
+        <Button variant="plain" onClick={() => setShowCode(true)}>
+          Not connecting? Show Reply Code
+        </Button>
+      </div>
+    );
+  }
   return (
     <div className="space-y-6">
+      {props.reply === 'failed' && (
+        <Banner tone="info">
+          Couldn’t send the reply automatically (no internet?). Show this code to {name} instead.
+        </Banner>
+      )}
       <p className="text-center text-body text-text-2">
         Now hold this screen up to{' '}
         <strong className="text-text">{props.remoteName ?? 'the other device'}</strong> and tap{' '}

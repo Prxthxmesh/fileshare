@@ -24,9 +24,9 @@ $env:FILESHARE_SCREENSHOTS=1; npx playwright test screens   # design-review scre
 | ESLint | ✅ 0 problems |
 | TypeScript (`tsc -b`) | ✅ 0 errors |
 | Prettier | ✅ clean |
-| Vitest | ✅ 75 / 75 tests, 7 files |
+| Vitest | ✅ 82 / 82 tests, 8 files |
 | Production build | ✅ (main bundle ≈ 88 kB gzip; jsQR lazy-loaded) |
-| Playwright e2e | ✅ 13 / 13 (screenshot capture is opt-in and also passes) |
+| Playwright e2e | ✅ 15 / 15 (2 use real public relays; skip with `FILESHARE_SKIP_RELAY=1`) |
 
 ### Unit and component tests (`tests/unit`)
 
@@ -79,6 +79,8 @@ on this machine. Downloads are hashed with Node's SHA-256 and compared to the or
 | "Codes Don’t Match" → connection closed on **both** devices | ✅ |
 | Manifest valid; icons 192/512/maskable reachable | ✅ |
 | **Offline**: after first visit, reload offline → app shell + lazy screens load; offline hint shown | ✅ |
+| **Quick connect, one-scan pairing** (real public relays): receiver never scans a reply; codes match | ✅ |
+| **Quick connect reconnect** (real public relays): disconnect → sender sees "Available" → one tap connects and selects → 500 KB file verified | ✅ |
 
 Speeds are loopback on one machine — **not** a prediction of Wi-Fi speed between
 phones/tablets.

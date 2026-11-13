@@ -11,6 +11,7 @@ import {
   toQrParts,
   type PairingPayload,
 } from '../pairing/pairingSession';
+import { combineHalves, randomSecretHex } from '../link/linkCrypto';
 import { getDevice, putDevice } from '../storage/deviceRepository';
 import { PeerSession } from './peerConnection';
 import type { ControlMessage } from './transferProtocol';
@@ -43,19 +44,53 @@ class PeerManager {
     return [...this.sessions.values()].filter((s) => s.isReady);
   }
 
-  /** Receiving device: start pairing and get QR texts to display. */
-  async startOffer(): Promise<{ session: PeerSession; parts: string[]; payload: PairingPayload }> {
-    const { session, payload } = await PeerSession.createOffer(peerOptions());
+  /**
+   * Receiving device: start pairing and get QR texts to display. `rendezvous`
+   * (optional) lets the scanner send its reply back through quick connect.
+   */
+  async startOffer(
+    rendezvous?: string,
+  ): Promise<{ session: PeerSession; parts: string[]; payload: PairingPayload }> {
+    const { session, payload } = await PeerSession.createOffer(peerOptions(), { rendezvous });
     this.track(session);
     const parts = toQrParts(await encodePayload(payload));
     return { session, parts, payload };
+  }
+
+  /** Quick connect: offer to a linked device. Returns the encoded offer for the relay. */
+  async startLinkedOffer(deviceId: string): Promise<{ session: PeerSession; data: string }> {
+    const { session, payload } = await PeerSession.createOffer(peerOptions(), {
+      viaLinkDeviceId: deviceId,
+    });
+    this.track(session);
+    return { session, data: await encodePayload(payload) };
+  }
+
+  /** Quick connect: answer an offer that arrived encrypted from a linked device. */
+  async answerLinkedOffer(
+    data: string,
+    deviceId: string,
+  ): Promise<{ session: PeerSession; data: string }> {
+    const offer = await decodePayload(data);
+    if (offer.k !== 'offer' || offer.d !== deviceId)
+      throw new Error('Offer from an unexpected device');
+    if (this.replay.has(offer.sid)) throw new Error('Offer already used');
+    const { session, payload } = await PeerSession.acceptOffer(
+      offer,
+      peerOptions(),
+      null,
+      deviceId,
+    );
+    this.replay.consume(offer.sid, offer.exp);
+    this.track(session);
+    return { session, data: await encodePayload(payload) };
   }
 
   /** Sending device: answer a scanned offer and get the reply QR texts. */
   async answerOffer(
     data: string,
     activeCamera?: MediaStream | null,
-  ): Promise<{ session: PeerSession; parts: string[] }> {
+  ): Promise<{ session: PeerSession; parts: string[]; data: string; offer: PairingPayload }> {
     const offer = await decodePayload(data);
     if (this.replay.has(offer.sid)) {
       throw new PairingCodeError(
@@ -66,15 +101,19 @@ class PeerManager {
     const { session, payload } = await PeerSession.acceptOffer(offer, peerOptions(), activeCamera);
     this.replay.consume(offer.sid, offer.exp);
     this.track(session);
-    const parts = toQrParts(await encodePayload(payload));
-    return { session, parts };
+    const encoded = await encodePayload(payload);
+    return { session, parts: toQrParts(encoded), data: encoded, offer };
   }
 
   /** Receiving device: apply the scanned reply. */
   async applyAnswer(sessionId: string, data: string) {
     const session = this.sessions.get(sessionId);
     if (!session) throw new Error('This pairing session has ended. Start pairing again.');
-    await session.applyAnswer(await decodePayload(data));
+    const answer = await decodePayload(data);
+    if (session.viaLinkDeviceId && answer.d !== session.viaLinkDeviceId) {
+      throw new Error('The reply came from an unexpected device.');
+    }
+    await session.applyAnswer(answer);
     this.sync(session);
   }
 
@@ -112,7 +151,10 @@ class PeerManager {
     session.on('phase', (phase) => {
       this.sync(session);
       if (phase === 'verifying') void this.applyTrust(session);
-      if (phase === 'connected') void this.rememberDevice(session, session.localConfirmed);
+      if (phase === 'connected') {
+        void this.rememberDevice(session, session.localConfirmed);
+        this.offerLinkHalf(session);
+      }
       if (phase === 'closed' || phase === 'failed') {
         this.handlers.forEach((h) => h.onPeerGone(session));
         if (session.connectedAt && session.remote) {
@@ -124,7 +166,13 @@ class PeerManager {
       this.sync(session);
       if (session.remote && session.phase === 'verifying') void this.applyTrust(session);
     });
-    session.on('control', (msg) => this.handlers.forEach((h) => h.onControl(session, msg)));
+    session.on('control', (msg) => {
+      if (msg.t === 'link') {
+        void this.onLinkHalf(session, msg.half);
+        return;
+      }
+      this.handlers.forEach((h) => h.onControl(session, msg));
+    });
     session.on('binary', (buf) => this.handlers.forEach((h) => h.onBinary(session, buf)));
     this.sync(session);
   }
@@ -141,6 +189,15 @@ class PeerManager {
     const remote = session.remote;
     if (!remote || this.trustChecked.has(session.id)) return;
     this.trustChecked.add(session.id);
+    // Negotiated through the encrypted quick-connect channel of this exact
+    // device: its offer/answer (including the DTLS fingerprint) was
+    // authenticated by the shared link key.
+    if (session.viaLinkDeviceId && session.viaLinkDeviceId === remote.deviceId) {
+      session.recognised = true;
+      session.confirmVerification(true, true);
+      this.sync(session);
+      return;
+    }
     const record = await getDevice(remote.deviceId).catch(() => undefined);
     if (
       record?.trusted &&
@@ -154,9 +211,49 @@ class PeerManager {
     }
   }
 
-  private async rememberDevice(session: PeerSession, verified: boolean) {
+  // Device records are written from several events; serialize per device.
+  private deviceWrites = new Map<string, Promise<unknown>>();
+  private withDevice<T>(deviceId: string, fn: () => Promise<T>): Promise<T> {
+    const prev = this.deviceWrites.get(deviceId) ?? Promise.resolve();
+    const next = prev.catch(() => {}).then(fn);
+    this.deviceWrites.set(deviceId, next);
+    return next;
+  }
+
+  /**
+   * After a verified QR pairing, both devices contribute a random half to a
+   * new link secret over the encrypted DataChannel. The combined secret
+   * enables quick connect next time.
+   */
+  private remoteHalves = new Map<string, string>();
+  private offerLinkHalf(session: PeerSession) {
+    if (session.viaLinkDeviceId || session.linkHalf) return;
+    session.linkHalf = randomSecretHex();
+    session.sendControl({ t: 'link', half: session.linkHalf });
+    const theirs = this.remoteHalves.get(session.id);
+    if (theirs) void this.onLinkHalf(session, theirs);
+  }
+
+  private async onLinkHalf(session: PeerSession, half: string) {
     const remote = session.remote;
-    if (!remote) return;
+    if (!remote || !session.isReady || session.viaLinkDeviceId) return;
+    if (!session.linkHalf) {
+      this.remoteHalves.set(session.id, half);
+      return;
+    }
+    this.remoteHalves.delete(session.id);
+    const secret = await combineHalves(session.linkHalf, half);
+    await this.rememberDevice(session, true, secret);
+  }
+
+  private rememberDevice(session: PeerSession, verified: boolean, linkSecret?: string) {
+    const remote = session.remote;
+    if (!remote) return Promise.resolve();
+    return this.withDevice(remote.deviceId, () => this.writeDevice(session, verified, linkSecret));
+  }
+
+  private async writeDevice(session: PeerSession, verified: boolean, linkSecret?: string) {
+    const remote = session.remote!;
     const now = Date.now();
     const existing = await getDevice(remote.deviceId).catch(() => undefined);
     const record: DeviceRecord = {
@@ -167,6 +264,7 @@ class PeerManager {
       platform: remote.platform,
       fingerprint: verified ? (remote.fingerprint ?? undefined) : existing?.fingerprint,
       trusted: verified || (existing?.trusted ?? false),
+      linkSecret: linkSecret ?? existing?.linkSecret,
       firstSeen: existing?.firstSeen ?? now,
       lastConnected: now,
       transferCount: existing?.transferCount ?? 0,

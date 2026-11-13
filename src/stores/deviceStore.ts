@@ -35,7 +35,11 @@ export const useDeviceStore = create<DeviceState>((set, get) => ({
     if (updated) get().upsert(updated);
   },
   revokeTrust: async (deviceId) => {
-    const updated = await repo.updateDevice(deviceId, { trusted: false, fingerprint: undefined });
+    const updated = await repo.updateDevice(deviceId, {
+      trusted: false,
+      fingerprint: undefined,
+      linkSecret: undefined,
+    });
     if (updated) get().upsert(updated);
   },
   remove: async (deviceId) => {

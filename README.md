@@ -112,10 +112,29 @@ configured per device in **Settings › Network** (empty by default = LAN only).
 
 ## 9. How QR pairing works
 
-1. Receiver: **Receive › Pair New Device** → shows QR (expires in 5 minutes).
-2. Sender: **Send › Scan Device** (or Home › Scan Device) → scans it → shows a reply QR.
-3. Receiver: **Scan Reply** → scans the sender's reply.
-4. Both devices show a **6-digit verification code**. Check they match → **Codes Match** on both.
+**First time (one scan):**
+
+1. Receiver: **Receive › Pair New Device** → shows a QR code (expires in 5 minutes).
+2. Sender: **Send › Scan Device** → scans it. With internet, its reply goes back
+   automatically (encrypted, via quick connect) — nothing to scan on the receiver.
+3. Both devices show a **6-digit verification code**. Check they match → **Codes Match** on both.
+
+Without internet, the sender shows a reply QR instead; the receiver taps **Scan Its Reply
+Code** and scans it (the original two-scan flow).
+
+**Every time after (no scan) — quick connect:** open FileShare on both devices. Paired
+devices are listed under **Send › To** and on Home with a green dot when **Available**. Tap
+one: it connects and is selected, ready to send. The other device accepts the connection
+automatically (files still need approval).
+
+How quick connect works: after a verified pairing, the two devices agree on a shared secret
+over their encrypted connection. Later, each open FileShare listens on hourly-changing
+topics derived from that secret on a few free public **Nostr relays**, and announces itself.
+Tapping a device sends it an AES-GCM-encrypted WebRTC offer; it answers the same way. The
+relays only ever see small encrypted messages — **files and text always go directly between
+the devices**. Needs internet at the moment of connecting; turn it off in **Settings › Quick
+connect** to use QR codes only. Both devices must have FileShare open (browsers can't wake
+a closed web app).
 
 No camera? Under each QR, **“Can’t scan? Use a text code”** shows the code as text to send
 by AirDrop/Nearby Share/message; paste it under **Enter code manually** on the other device.

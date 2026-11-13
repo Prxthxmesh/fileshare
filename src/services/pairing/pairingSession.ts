@@ -43,6 +43,12 @@ export interface PairingPayload {
   /** creator platform label */
   pf: string;
   sdp: SdpPayload;
+  /**
+   * Offer only: one-time rendezvous secret (16 bytes, base64url). Lets the
+   * scanning device send its reply back through the encrypted relay, so the
+   * first device doesn't need to scan a reply code.
+   */
+  rv?: string;
 }
 
 export class PairingCodeError extends Error {
@@ -144,6 +150,7 @@ export function validatePayload(raw: unknown): PairingPayload {
   if (typeof p.n !== 'string' || p.n.length > 60) fail();
   if (!['phone', 'tablet', 'desktop', 'unknown'].includes(p.dk as string)) fail();
   if (typeof p.pf !== 'string' || p.pf.length > 30) fail();
+  if (p.rv != null && (typeof p.rv !== 'string' || !/^[A-Za-z0-9_-]{22}$/.test(p.rv))) fail();
   const sdp = p.sdp as Record<string, unknown> | undefined;
   if (!sdp || typeof sdp !== 'object') fail();
   try {
@@ -164,6 +171,7 @@ export function validatePayload(raw: unknown): PairingPayload {
     dk: p.dk as DeviceKind,
     pf: p.pf as string,
     sdp: sdp as unknown as SdpPayload,
+    ...(typeof p.rv === 'string' ? { rv: p.rv } : {}),
   };
 }
 

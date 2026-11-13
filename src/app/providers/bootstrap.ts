@@ -1,4 +1,5 @@
 import { initIdentity } from '@/services/appContext';
+import { linkService } from '@/services/link/linkService';
 import { cleanupIncoming, storageNameFor } from '@/services/transfer/receiveStorage';
 import { transferManager } from '@/services/transfer/transferManager';
 import {
@@ -21,6 +22,7 @@ export async function bootstrap() {
   ]);
   const history = await listTransfers().catch(() => []);
   useTransferStore.getState().setHistory(history);
+  linkService.init();
 
   // Housekeeping (non-blocking): keep received files and resumable partials from
   // the last 24 hours, delete older leftovers from FileShare's private storage.

@@ -23,9 +23,14 @@ export function AboutScreen() {
           devices. No server stores or relays them. The website only delivers the app itself.
         </Topic>
         <Topic title="Pairing by QR code">
-          Browsers can’t discover nearby devices by themselves, so the two devices exchange
-          connection details through QR codes. The codes expire after five minutes and can’t be
-          reused.
+          Browsers can’t discover nearby devices by themselves, so the first time, one device scans
+          the other’s QR code. Codes expire after five minutes and can’t be reused.
+        </Topic>
+        <Topic title="Quick connect">
+          After that first pairing, your devices reconnect with a tap. A small encrypted “let’s
+          connect” message travels through free public Nostr relays; only your two devices hold the
+          key to read it. Files and text never go through the relays. Turn it off in Settings to use
+          QR codes only.
         </Topic>
         <Topic title="Verification code">
           After connecting, both devices show a six-digit code derived from the certificates

@@ -77,6 +77,32 @@ travels directly between the two browsers over an encrypted WebRTC DataChannel.
 - On failure, `explainConnectFailure()` turns the candidate summary into a specific
   explanation (no addresses, mDNS-only on both sides, generic isolation/VPN).
 
+## Quick connect (`src/services/link/`)
+
+Reconnects paired devices without QR codes. Browsers can't listen for incoming connections
+or discover LAN devices, so a tiny mailbox is needed for the WebRTC handshake; FileShare uses
+free public **Nostr relays** (`nostr.ts`: minimal client, ephemeral kind 21059 — forwarded,
+never stored; random signing key per launch).
+
+- **Link secret**: after a QR pairing is verified on both sides, each device sends a random
+  32-byte half (`{t:'link'}` over the DataChannel); secret = SHA-256(sorted halves), stored
+  in the device record.
+- **Keys/topics** (`linkCrypto.ts`): AES-256-GCM key = SHA-256("fileshare-link-enc|secret");
+  topic = first 40 hex of SHA-256("fileshare-topic|hourBucket|secret"); subscriptions cover
+  the previous/current/next hour.
+- **Messages** (`linkService.ts`, all encrypted): `presence` every 20 s while visible (marks
+  the device Available for 50 s), `offer` (encoded pairing payload), `answer`. Accepted only
+  if it decrypts with that device's key, `from` equals that device, timestamp within ±3 min,
+  offer not replayed. Simultaneous taps: the smaller device id's offer wins.
+- **Trust**: sessions negotiated this way are auto-verified (`peerManager.applyTrust`) since
+  the fingerprint arrived authenticated by the link key; the hello must still match.
+- **One-scan pairing**: the offer QR includes `rv` (16-byte rendezvous secret). The scanner
+  posts its answer as `pair-reply` on that rendezvous topic; the offerer applies it
+  automatically. The reply QR remains as an offline fallback.
+- Relays: snort.social, primal, offchain.pub, nostr.oxtr.dev, nostr.data.haus,
+  nostr.bitcoiner.social, damus, nos.lol (publish to all; one delivery suffices). Measured
+  delivery 1–3.5 s from the dev machine on 2026-11-14.
+
 ## Wire protocol (`transferProtocol.ts`)
 
 Reliable, ordered DataChannel. Text frames = JSON control messages, strictly validated

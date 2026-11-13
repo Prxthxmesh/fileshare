@@ -12,6 +12,7 @@ export function defaultSettings(): Settings {
     textHistoryEnabled: false,
     confirmCancel: true,
     keepAwake: true,
+    quickConnect: true,
   };
 }
 
@@ -29,6 +30,7 @@ export function normalizeSettings(raw: unknown): Settings {
     textHistoryEnabled: r.textHistoryEnabled === true,
     confirmCancel: r.confirmCancel !== false,
     keepAwake: r.keepAwake !== false,
+    quickConnect: r.quickConnect !== false,
   };
 }
 

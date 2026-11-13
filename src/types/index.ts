@@ -19,6 +19,8 @@ export interface Settings {
   confirmCancel: boolean;
   /** Request a screen wake lock while a transfer is running (when supported). */
   keepAwake: boolean;
+  /** Reconnect paired devices without QR codes via encrypted public relays. */
+  quickConnect: boolean;
 }
 
 export interface DeviceRecord {
@@ -32,6 +34,8 @@ export interface DeviceRecord {
   fingerprint?: string;
   /** True only after the user confirmed matching verification codes. */
   trusted: boolean;
+  /** Shared secret for quick connect (hex). Present only for verified devices. */
+  linkSecret?: string;
   firstSeen: number;
   lastConnected: number;
   transferCount: number;

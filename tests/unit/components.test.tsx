@@ -24,7 +24,10 @@ describe('common components', () => {
 
   it('progress bars report their value', () => {
     render(<ProgressBar value={42.4} label="Upload" />);
-    expect(screen.getByRole('progressbar', { name: 'Upload' })).toHaveAttribute('aria-valuenow', '42');
+    expect(screen.getByRole('progressbar', { name: 'Upload' })).toHaveAttribute(
+      'aria-valuenow',
+      '42',
+    );
   });
 
   it('status labels use text, not just color', () => {
@@ -71,8 +74,22 @@ describe('transfer UI', () => {
           peerId: 'peer1',
           peerName: 'Realme GT 6T',
           files: [
-            { id: 'f0000001', name: 'IMG_0001.HEIC', originalName: 'IMG_0001.HEIC', size: 2_400_000, mime: 'image/heic', lastModified: 0 },
-            { id: 'f0000002', name: 'notes (1).txt', originalName: 'notes.txt', size: 1200, mime: 'text/plain', lastModified: 0 },
+            {
+              id: 'f0000001',
+              name: 'IMG_0001.HEIC',
+              originalName: 'IMG_0001.HEIC',
+              size: 2_400_000,
+              mime: 'image/heic',
+              lastModified: 0,
+            },
+            {
+              id: 'f0000002',
+              name: 'notes (1).txt',
+              originalName: 'notes.txt',
+              size: 1200,
+              mime: 'text/plain',
+              lastModified: 0,
+            },
           ],
           totalSize: 2_401_200,
           resume: false,
@@ -84,7 +101,9 @@ describe('transfer UI', () => {
       ],
     });
     render(<ApprovalSheet />);
-    expect(screen.getByRole('dialog', { name: /Realme GT 6T wants to send you 2 files/ })).toBeInTheDocument();
+    expect(
+      screen.getByRole('dialog', { name: /Realme GT 6T wants to send you 2 files/ }),
+    ).toBeInTheDocument();
     expect(screen.getByText('IMG_0001.HEIC')).toBeInTheDocument();
     expect(screen.getByText('2.4 MB in total')).toBeInTheDocument();
     expect(screen.getByText(/1 file name was adjusted/)).toBeInTheDocument();
@@ -104,7 +123,17 @@ describe('transfer UI', () => {
               peerDeviceId: 'p',
               peerName: 'iPad',
               status: 'failed',
-              files: [{ fileId: 'f1', name: 'video.mov', size: 5, mime: 'video/quicktime', lastModified: 0, status: 'failed', bytes: 0 }],
+              files: [
+                {
+                  fileId: 'f1',
+                  name: 'video.mov',
+                  size: 5,
+                  mime: 'video/quicktime',
+                  lastModified: 0,
+                  status: 'failed',
+                  bytes: 0,
+                },
+              ],
               totalBytes: 5,
               startedAt: Date.now(),
             }}

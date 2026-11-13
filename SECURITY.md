@@ -20,7 +20,9 @@ each transfer and nothing is opened automatically).
 | Area | Control |
 | --- | --- |
 | Transport encryption | WebRTC DTLS 1.2+ / SCTP, provided by the browser. Every DataChannel is encrypted. |
-| Data path | Direct peer-to-peer. No TURN/relay support at all. No ICE servers by default (LAN host candidates only). Optional STUN only discovers addresses. |
+| Data path | Direct peer-to-peer. No TURN/relay of file or text data, ever. No ICE servers by default (LAN host candidates only). Optional STUN only discovers addresses. |
+| Quick connect (optional, on by default) | Only the WebRTC handshake (offer/answer, presence pings) of **already paired** devices goes through public Nostr relays. Every message is AES-256-GCM encrypted with a key derived from a 256-bit link secret that both devices contribute to over their verified, DTLS-encrypted connection; relays see ciphertext, a random per-launch signing key, and an hourly-rotating topic hash. A message is accepted only if it decrypts with that device's key, names that device as sender, is fresh (±3 min) and not replayed. Because the offer/answer (including the DTLS fingerprint) is authenticated by the link key, such connections are trusted without a code comparison. Revoking trust or removing the device deletes the link secret. |
+| One-scan first pairing | The offer QR carries a one-time 128-bit rendezvous secret; the scanner returns its answer encrypted with it via the relays. The 6-digit verification code is still required, so a photographed QR can't be abused without detection. |
 | Pairing secrecy | The SDP (ICE credentials + DTLS fingerprint) is exchanged visually (QR) or by a user-chosen channel (text code). Never sent to any server, never persisted, never logged in diagnostics. |
 | Pairing lifetime | Sessions expire after 5 minutes (±2 min skew tolerance on the other device's clock; exact on the creator). |
 | Replay | An offer can be answered once per tab (session-id replay guard); an answer can be applied once (`have-local-offer` state check); answers must carry the matching session id. |
@@ -40,6 +42,13 @@ each transfer and nothing is opened automatically).
 | Third parties | No analytics, trackers, fonts, or CDNs at runtime. `referrer` policy `no-referrer`. |
 
 ## Known limitations
+
+- **Quick connect metadata**: relays (and network observers) can see that some client
+  connected to them, its IP address and timing. They can't read content, link the device pair
+  across hours, or relay files. Turn quick connect off for strictly offline operation.
+- **Link secrets** are stored unencrypted in the browser's IndexedDB, with the same
+  protection as the rest of the site's data. Anyone with access to the unlocked browser
+  profile could impersonate this device to its paired devices; revoke trust if a device is lost.
 
 - **Verification relies on the user comparing codes.** Tapping "Codes Match" without
   looking removes the protection against a substituted QR code.

@@ -10,6 +10,7 @@ import { validateStunUrl } from '@/services/storage/settingsRepository';
 import { clearTextHistory, listTextHistory } from '@/services/storage/transferRepository';
 import { cleanupIncoming, storageEstimate } from '@/services/transfer/receiveStorage';
 import { peerManager } from '@/services/webrtc/peerManager';
+import { useLinkStore } from '@/stores/linkStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useTransferStore } from '@/stores/transferStore';
 import { toast } from '@/stores/uiStore';
@@ -22,6 +23,8 @@ export function SettingsScreen() {
   const settings = useSettingsStore((s) => s.settings);
   const update = useSettingsStore((s) => s.update);
   const received = useTransferStore((s) => s.received);
+  const relays = useLinkStore((s) => s.relays);
+  const linkActive = useLinkStore((s) => s.active);
   const [name, setName] = useState(settings.deviceName);
   const [stun, setStun] = useState(settings.stunUrl);
   const [stunError, setStunError] = useState<string | null>(null);
@@ -148,12 +151,41 @@ export function SettingsScreen() {
       </Section>
 
       <Section
+        title="Quick connect"
+        footer={
+          <>
+            Reconnect paired devices with a tap instead of scanning codes. Only a small, encrypted
+            “let’s connect” message (under 1 KB) goes through free public Nostr relays; files and
+            text always go directly between your devices. Needs internet at the moment of
+            connecting. Without it, use QR codes as before.
+          </>
+        }
+      >
+        <Group>
+          <Toggle
+            label="Quick connect"
+            description={
+              settings.quickConnect
+                ? linkActive
+                  ? relays > 0
+                    ? `Online · ${pluralize(relays, 'relay')} reachable`
+                    : 'Connecting to relays…'
+                  : 'On · pair a device to start using it'
+                : 'Off · every connection uses QR codes'
+            }
+            checked={settings.quickConnect}
+            onChange={(quickConnect) => void update({ quickConnect })}
+          />
+        </Group>
+      </Section>
+
+      <Section
         title="Network"
         footer={
           <>
             Leave empty for local-network-only connections (recommended). A STUN server needs
             internet access and only helps devices discover their addresses — file data never passes
-            through it. FileShare never uses relay servers.
+            through it. File data is never relayed through any server.
           </>
         }
       >

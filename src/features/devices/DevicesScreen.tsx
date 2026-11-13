@@ -8,12 +8,15 @@ import { Group, Row, Section } from '@/components/common/List';
 import { ConfirmDialog, Sheet } from '@/components/common/Sheet';
 import { ConnectedDevices } from '@/components/devices/ConnectedDevices';
 import { DeviceGlyph } from '@/components/devices/DeviceIcon';
+import { useConnectDevice } from '@/hooks/usePairedDevices';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { SettingsLink } from '@/components/layout/SettingsLink';
 import { shortFingerprint } from '@/services/pairing/pairingSecurity';
 import { displayName } from '@/services/storage/deviceRepository';
 import { clearTransfers } from '@/services/storage/transferRepository';
+import { isReadyPhase, useConnectionStore } from '@/stores/connectionStore';
 import { useDeviceStore } from '@/stores/deviceStore';
+import { useLinkStore } from '@/stores/linkStore';
 import { useTransferStore } from '@/stores/transferStore';
 import { toast } from '@/stores/uiStore';
 import type { DeviceRecord } from '@/types';
@@ -108,6 +111,13 @@ function DeviceSheet({ device, onClose }: { device: DeviceRecord | null; onClose
   const [name, setName] = useState('');
   const [confirm, setConfirm] = useState<'remove' | 'history' | 'revoke' | null>(null);
   const { rename, revokeTrust, remove } = useDeviceStore.getState();
+  const connect = useConnectDevice();
+  const connecting = useLinkStore((s) => (device ? !!s.connecting[device.deviceId] : false));
+  const connected = useConnectionStore((s) =>
+    Object.values(s.peers).some(
+      (p) => isReadyPhase(p.phase) && !!device && p.remote?.deviceId === device.deviceId,
+    ),
+  );
   const [lastId, setLastId] = useState<string | null>(null);
   if (device && device.deviceId !== lastId) {
     setLastId(device.deviceId);
@@ -196,7 +206,23 @@ function DeviceSheet({ device, onClose }: { device: DeviceRecord | null; onClose
               chevron={false}
             />
             <Row title="Transfers" trailing={String(device.transferCount)} chevron={false} />
+            <Row
+              title="Quick connect"
+              subtitle={
+                device.linkSecret
+                  ? 'Connects with a tap, no QR code.'
+                  : 'Pair once with a QR code to turn on.'
+              }
+              trailing={device.linkSecret ? 'On' : 'Off'}
+              chevron={false}
+            />
           </Group>
+
+          {device.linkSecret && device.trusted && !connected && (
+            <Button size="lg" block loading={connecting} onClick={() => void connect(device)}>
+              Connect
+            </Button>
+          )}
 
           <div className="space-y-1">
             {device.trusted && (
@@ -224,7 +250,7 @@ function DeviceSheet({ device, onClose }: { device: DeviceRecord | null; onClose
         }
         message={
           confirm === 'revoke'
-            ? 'Next time it connects, you’ll need to compare verification codes again.'
+            ? 'Quick connect stops for this device, and next time you’ll need to scan a code and compare verification codes again.'
             : confirm === 'history'
               ? 'Transfers with this device will be removed from Activity.'
               : 'Its name, trust and statistics will be deleted from this device. Transfer history stays.'

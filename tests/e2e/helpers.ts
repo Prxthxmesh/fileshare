@@ -13,7 +13,16 @@ export interface Device {
   page: Page;
 }
 
-export async function openDevice(browser: Browser, name: string): Promise<Device> {
+/**
+ * Opens an isolated "device". Quick connect (public relays) is switched off by
+ * default so the core tests run offline and deterministically; the
+ * quick-connect tests opt in.
+ */
+export async function openDevice(
+  browser: Browser,
+  name: string,
+  { quickConnect = false } = {},
+): Promise<Device> {
   const context = await browser.newContext({ acceptDownloads: true });
   const page = await context.newPage();
   page.on('pageerror', (e) => console.log(`[${name}] pageerror:`, e.message));
@@ -22,6 +31,9 @@ export async function openDevice(browser: Browser, name: string): Promise<Device
   await field.fill(name);
   await field.blur();
   await expect(page.getByText('Device name saved')).toBeVisible();
+  const toggle = page.getByRole('switch', { name: /Quick connect/ });
+  if ((await toggle.getAttribute('aria-checked')) !== String(quickConnect)) await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-checked', String(quickConnect));
   return { context, page };
 }
 

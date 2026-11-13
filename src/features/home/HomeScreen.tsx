@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { EmptyState } from '@/components/common/Feedback';
 import { Group, Section } from '@/components/common/List';
 import { ConnectedDevices } from '@/components/devices/ConnectedDevices';
+import { PairedDeviceRows } from '@/components/devices/PairedDevices';
+import { usePairedOffline } from '@/hooks/usePairedDevices';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { SettingsLink } from '@/components/layout/SettingsLink';
 import { TransferCard } from '@/components/transfers/TransferCard';
@@ -17,6 +19,7 @@ import { useShallow } from 'zustand/react/shallow';
 export function HomeScreen() {
   const deviceName = useSettingsStore((s) => s.settings.deviceName);
   const ready = useConnectionStore(useShallow(selectReadyPeers));
+  const paired = usePairedOffline();
   const live = useTransferStore((s) => s.live);
   const history = useTransferStore((s) => s.history);
   const active = Object.values(live).filter((t) => ACTIVE_STATUSES.has(t.record.status));
@@ -58,15 +61,29 @@ export function HomeScreen() {
         />
       </div>
 
-      <Section title="Connected">
-        {ready.length ? (
-          <ConnectedDevices />
-        ) : (
+      <Section
+        title="Your devices"
+        footer={
+          paired.length
+            ? 'Tap a paired device to connect. FileShare must be open on it.'
+            : undefined
+        }
+      >
+        {ready.length > 0 && <ConnectedDevices />}
+        {paired.length > 0 && (
+          <div className="overflow-hidden rounded-[var(--radius-card)] bg-surface">
+            <ul className="divide-y divide-separator">
+              <PairedDeviceRows devices={paired} />
+            </ul>
+          </div>
+        )}
+        {!ready.length && !paired.length && (
           <div className="rounded-[var(--radius-card)] bg-surface px-4 py-4">
             <p className="text-body text-text">No devices connected</p>
             <p className="mt-1 text-footnote text-text-2">
               Both devices need FileShare open on the same Wi-Fi. On the receiving device tap
-              Receive › Pair New Device; on the sending device tap Scan Device.
+              Receive › Pair New Device; on the sending device tap Scan Device. You only need to do
+              this once per device.
             </p>
           </div>
         )}
