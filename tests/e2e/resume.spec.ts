@@ -38,7 +38,7 @@ async function startTransfer(path: string) {
 }
 
 async function resumeFromSender() {
-  await sender.page.goto('/#/activity');
+  await sender.page.goto('./#/activity');
   await sender.page.getByRole('button', { name: 'Resume' }).click();
   const dialog = receiver.page.getByRole('dialog', { name: 'Resume transfer from Test Phone?' });
   await expect(dialog).toBeVisible();
@@ -51,7 +51,7 @@ async function resumeFromSender() {
 }
 
 async function saveAndHash(page: Page, name: string) {
-  await page.goto('/#/receive');
+  await page.goto('./#/receive');
   const [download] = await Promise.all([
     page.waitForEvent('download'),
     page.getByRole('button', { name: `Save ${name}`, exact: true }).click(),
@@ -63,7 +63,7 @@ test('disconnect mid-transfer, re-pair, and resume from confirmed progress', asy
   const file = await makeLargeFile(TMP, 'resume-disconnect.bin', SIZE);
   await startTransfer(file.path);
 
-  await receiver.page.goto('/#/devices');
+  await receiver.page.goto('./#/devices');
   await receiver.page.getByRole('button', { name: 'Disconnect Test Phone' }).click();
   await receiver.page.getByRole('dialog').getByRole('button', { name: 'Disconnect' }).click();
   await expect(sender.page.getByText('Transfer interrupted').first()).toBeVisible();
@@ -84,7 +84,7 @@ test('receiver reloads mid-transfer; partial file survives on disk and the trans
   });
 
   // After the reload the receiver lists the transfer as interrupted.
-  await receiver.page.goto('/#/activity');
+  await receiver.page.goto('./#/activity');
   await expect(receiver.page.getByText('Interrupted').first()).toBeVisible();
 
   await pair(receiver, sender, true);

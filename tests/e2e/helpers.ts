@@ -17,7 +17,7 @@ export async function openDevice(browser: Browser, name: string): Promise<Device
   const context = await browser.newContext({ acceptDownloads: true });
   const page = await context.newPage();
   page.on('pageerror', (e) => console.log(`[${name}] pageerror:`, e.message));
-  await page.goto('/#/settings');
+  await page.goto('./#/settings');
   const field = page.getByLabel('Device name');
   await field.fill(name);
   await field.blur();
@@ -43,10 +43,10 @@ async function enterCode(page: Page, code: string) {
  * shows a reply → receiver enters the reply → both confirm matching codes.
  */
 export async function pair(receiver: Device, sender: Device, expectRecognised = false) {
-  await receiver.page.goto('/#/pair/show');
+  await receiver.page.goto('./#/pair/show');
   const offer = await readTextCode(receiver.page);
 
-  await sender.page.goto('/#/pair/scan');
+  await sender.page.goto('./#/pair/scan');
   await enterCode(sender.page, offer);
   await expect(
     sender.page
@@ -100,7 +100,7 @@ export function sha256(buf: Buffer) {
 }
 
 export async function chooseFiles(page: Page, files: TestFile[]) {
-  await page.goto('/#/send');
+  await page.goto('./#/send');
   await page.locator('input[type="file"]').setInputFiles(files);
 }
 
@@ -143,6 +143,6 @@ export async function sha256OfPath(path: string): Promise<string> {
 }
 
 export async function chooseFilePaths(page: Page, paths: string[]) {
-  await page.goto('/#/send');
+  await page.goto('./#/send');
   await page.locator('input[type="file"]').setInputFiles(paths);
 }

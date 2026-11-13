@@ -54,7 +54,7 @@ test('multiple files arrive byte-for-byte identical, with SHA-256 verification',
   });
   await expect(sender.page.getByText('Sent 5 files to Test iPad')).toBeVisible();
 
-  await receiver.page.goto('/#/receive');
+  await receiver.page.goto('./#/receive');
   const expected = new Map([
     ['photo.jpg', files[0]],
     ['empty.txt', files[1]],
@@ -74,7 +74,7 @@ test('multiple files arrive byte-for-byte identical, with SHA-256 verification',
   }
 
   // History records metadata, including the verified checksum.
-  await sender.page.goto('/#/activity');
+  await sender.page.goto('./#/activity');
   await sender.page
     .getByRole('link', { name: /5 files/ })
     .first()
@@ -106,13 +106,13 @@ test('sender can cancel a transfer in progress', async () => {
     .click();
   await expect(sender.page.getByText('Cancelled').first()).toBeVisible();
   await expect(receiver.page.getByText('Transfer cancelled')).toBeVisible();
-  await receiver.page.goto('/#/activity');
+  await receiver.page.goto('./#/activity');
   await expect(receiver.page.getByText('Cancelled').first()).toBeVisible();
 });
 
 test('text sharing delivers the exact text and the receiver can copy it', async () => {
   const text = 'Meeting notes\nhttps://example.com/agenda?x=1\n  indented code();\n✓ unicode';
-  await sender.page.goto('/#/send?mode=text');
+  await sender.page.goto('./#/send?mode=text');
   await sender.page.getByLabel('Text to send').fill(text);
   await sender.page.getByRole('button', { name: 'Send Text to Test iPad' }).click();
   await expect(sender.page.getByText('Text sent to Test iPad')).toBeVisible();
@@ -147,7 +147,7 @@ test('large file transfers with bounded memory and verified integrity', async ()
   console.log(`[large file] receiver JS heap after transfer: ${(heap / 1e6).toFixed(1)} MB`);
   if (heap) expect(heap).toBeLessThan(mb * 1e6 * 0.5);
 
-  await receiver.page.goto('/#/receive');
+  await receiver.page.goto('./#/receive');
   const [download] = await Promise.all([
     receiver.page.waitForEvent('download'),
     receiver.page.getByRole('button', { name: `Save large-${mb}MB.bin`, exact: true }).click(),

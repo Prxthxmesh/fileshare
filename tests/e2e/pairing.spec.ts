@@ -30,9 +30,9 @@ async function enter(page: Device['page'], code: string) {
 
 test('connects even when the reply is scanned 45 seconds later', async () => {
   test.setTimeout(240_000);
-  await a.page.goto('/#/pair/show');
+  await a.page.goto('./#/pair/show');
   const offer = await textCode(a.page);
-  await b.page.goto('/#/pair/scan');
+  await b.page.goto('./#/pair/scan');
   await enter(b.page, offer);
   const answer = await textCode(b.page);
   await b.page.waitForTimeout(45_000);
@@ -45,9 +45,9 @@ test('connects even when the reply is scanned 45 seconds later', async () => {
 });
 
 test('rejects a reused pairing code', async () => {
-  await a.page.goto('/#/pair/show');
+  await a.page.goto('./#/pair/show');
   const offer = await textCode(a.page);
-  await b.page.goto('/#/pair/scan');
+  await b.page.goto('./#/pair/scan');
   await enter(b.page, offer);
   await expect(
     b.page
@@ -62,7 +62,7 @@ test('rejects a reused pairing code', async () => {
 });
 
 test('explains invalid and misdirected codes', async () => {
-  await b.page.goto('/#/pair/scan');
+  await b.page.goto('./#/pair/scan');
   await enter(b.page, 'hello world');
   await expect(b.page.getByText('This isn’t a FileShare pairing code.')).toBeVisible();
 
@@ -70,7 +70,7 @@ test('explains invalid and misdirected codes', async () => {
   await expect(b.page.getByText('This code is damaged or incomplete.')).toBeVisible();
 
   // A device scanning its own code.
-  await a.page.goto('/#/pair/show');
+  await a.page.goto('./#/pair/show');
   const own = await textCode(a.page);
   await a.page.getByRole('button', { name: 'Scan Reply' }).click();
   await enter(a.page, own);
@@ -78,9 +78,9 @@ test('explains invalid and misdirected codes', async () => {
 });
 
 test('mismatched verification closes the connection on both devices', async () => {
-  await a.page.goto('/#/pair/show');
+  await a.page.goto('./#/pair/show');
   const offer = await textCode(a.page);
-  await b.page.goto('/#/pair/scan');
+  await b.page.goto('./#/pair/scan');
   await enter(b.page, offer);
   const answer = await textCode(b.page);
   await a.page.getByRole('button', { name: 'Scan Reply' }).click();

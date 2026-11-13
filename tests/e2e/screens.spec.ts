@@ -40,30 +40,30 @@ test('capture screens', async ({ browser }) => {
 
   for (const [size, viewport] of Object.entries(SIZES)) {
     await receiver.page.setViewportSize(viewport);
-    await receiver.page.goto('/#/');
+    await receiver.page.goto('./#/');
     await shoot(receiver.page, `${size}-01-home-empty`);
-    await receiver.page.goto('/#/send');
+    await receiver.page.goto('./#/send');
     await shoot(receiver.page, `${size}-02-send-empty`);
-    await receiver.page.goto('/#/receive');
+    await receiver.page.goto('./#/receive');
     await shoot(receiver.page, `${size}-03-receive`);
-    await receiver.page.goto('/#/pair/show');
+    await receiver.page.goto('./#/pair/show');
     await expect(receiver.page.getByRole('img', { name: /Pairing code/ })).toBeVisible();
     await shoot(receiver.page, `${size}-04-pair-show`);
-    await receiver.page.goto('/#/activity');
+    await receiver.page.goto('./#/activity');
     await shoot(receiver.page, `${size}-05-activity-empty`);
-    await receiver.page.goto('/#/devices');
+    await receiver.page.goto('./#/devices');
     await shoot(receiver.page, `${size}-06-devices-empty`);
-    await receiver.page.goto('/#/settings');
+    await receiver.page.goto('./#/settings');
     await shoot(receiver.page, `${size}-07-settings`);
   }
 
   // Verification step (signature screen)
   await receiver.page.setViewportSize(SIZES.phone);
-  await receiver.page.goto('/#/pair/show');
+  await receiver.page.goto('./#/pair/show');
   await receiver.page.getByRole('button', { name: /Use a text code/ }).click();
   await shoot(receiver.page, 'phone-04b-pair-textcode');
   const offer = await receiver.page.getByLabel('Pairing code as text').inputValue();
-  await sender.page.goto('/#/pair/scan');
+  await sender.page.goto('./#/pair/scan');
   await sender.page.getByRole('button', { name: 'Enter code manually' }).click();
   await sender.page.setViewportSize(SIZES.phone);
   await shoot(sender.page, 'phone-04c-pair-scan');
@@ -106,34 +106,34 @@ test('capture screens', async ({ browser }) => {
   await dialog.getByRole('button', { name: 'Accept' }).click();
   await expect(receiver.page.getByText(/Received 3 files/)).toBeVisible({ timeout: 60_000 });
   await receiver.page.setViewportSize(SIZES.phone);
-  await receiver.page.goto('/#/');
+  await receiver.page.goto('./#/');
   await shoot(receiver.page, 'phone-01b-home-connected');
   await receiver.page.setViewportSize(SIZES.ipad);
   await shoot(receiver.page, 'ipad-01b-home-connected');
   await receiver.page.setViewportSize(SIZES.phone);
-  await receiver.page.goto('/#/receive');
+  await receiver.page.goto('./#/receive');
   await shoot(receiver.page, 'phone-03b-receive-files');
-  await sender.page.goto('/#/activity');
+  await sender.page.goto('./#/activity');
   await shoot(sender.page, 'phone-05b-activity');
   await sender.page
     .getByRole('link', { name: /3 files/ })
     .first()
     .click();
   await shoot(sender.page, 'phone-09-details');
-  await receiver.page.goto('/#/devices');
+  await receiver.page.goto('./#/devices');
   await shoot(receiver.page, 'phone-06b-devices');
 
   // In-flight transfer card
   await chooseFiles(sender.page, [makeFile('Big archive.zip', 45_000_000, 'application/zip')]);
   await sender.page.getByRole('button', { name: /^Send 1 File/ }).click();
   await receiver.page.getByRole('dialog').getByRole('button', { name: 'Accept' }).click();
-  await sender.page.goto('/#/activity');
+  await sender.page.goto('./#/activity');
   await sender.page.getByRole('button', { name: 'Pause transfer' }).click();
   await shoot(sender.page, 'phone-05c-activity-paused');
   await sender.page.getByRole('button', { name: 'Resume transfer' }).click();
 
   // Text
-  await sender.page.goto('/#/send?mode=text');
+  await sender.page.goto('./#/send?mode=text');
   await shoot(sender.page, 'phone-10-text');
   await sender.page.getByLabel('Text to send').fill('https://example.com/agenda');
   await sender.page.getByRole('button', { name: /Send Text/ }).click();
@@ -142,7 +142,7 @@ test('capture screens', async ({ browser }) => {
   });
   await shoot(receiver.page, 'phone-11-text-received');
 
-  await receiver.page.goto('/#/settings/diagnostics');
+  await receiver.page.goto('./#/settings/diagnostics');
   await shoot(receiver.page, 'phone-12-diagnostics');
 
   await receiver.context.close();

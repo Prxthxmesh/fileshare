@@ -1,5 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
 
+// Set FILESHARE_BASE_URL to test a deployed copy instead of the local build, e.g.
+//   $env:FILESHARE_BASE_URL='https://prxthxmesh.github.io/fileshare/'; npx playwright test transfer
+const remote = process.env.FILESHARE_BASE_URL;
+
 /**
  * End-to-end tests run the production build. Each test opens two isolated
  * browser contexts — two "devices" with separate storage and identities —
@@ -14,7 +18,7 @@ export default defineConfig({
   workers: 1,
   reporter: [['list']],
   use: {
-    baseURL: 'http://localhost:4173',
+    baseURL: remote ?? 'http://localhost:4173',
     acceptDownloads: true,
     trace: 'retain-on-failure',
   },
@@ -29,10 +33,12 @@ export default defineConfig({
       },
     },
   ],
-  webServer: {
-    command: 'npx vite preview --port 4173 --strictPort',
-    url: 'http://localhost:4173',
-    reuseExistingServer: true,
-    timeout: 60_000,
-  },
+  webServer: remote
+    ? undefined
+    : {
+        command: 'npx vite preview --port 4173 --strictPort',
+        url: 'http://localhost:4173',
+        reuseExistingServer: true,
+        timeout: 60_000,
+      },
 });
