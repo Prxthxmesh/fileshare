@@ -1,0 +1,13 @@
+node_modules
+dist
+coverage
+test-results
+playwright-report
+*.local
+.env
+.env.*
+!.env.example
+
+# Local development tooling (not part of FileShare)
+.claude
+skills-lock.json

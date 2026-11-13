@@ -1,0 +1,245 @@
+@import 'tailwindcss';
+
+/*
+ * FileShare design tokens.
+ * Contrast (WCAG 2.x), computed from these values:
+ *   light: text 17.96:1, text-2 6.33:1 (5.70 on bg), text-3 5.2:1 (4.7 on bg),
+ *          accent on surface 6.69:1, white on accent 6.69:1
+ *   dark:  text 15.69:1, text-2 7.44:1, text-3 5.69:1, accent 7.83:1,
+ *          white on accent-fill 5.04:1
+ */
+:root {
+  color-scheme: light;
+  --bg: #f2f3f5;
+  --surface: #ffffff;
+  --surface-2: #eceef1;
+  --surface-3: #e4e7ec;
+  --separator: #dadde2;
+  --text: #15171a;
+  --text-2: #5a606a;
+  --text-3: #646a75;
+  --accent: #2453c7;
+  --accent-fill: #2453c7;
+  --accent-soft: #e7edfb;
+  --on-accent: #ffffff;
+  --success: #1b7a3d;
+  --success-soft: #e3f3e8;
+  --danger: #c0261d;
+  --danger-fill: #c0261d;
+  --danger-soft: #fbe9e7;
+  --warning: #8a5200;
+  --warning-soft: #fdf1dc;
+  --backdrop: rgb(15 17 20 / 0.4);
+  --shadow-sheet: 0 -1px 0 rgb(0 0 0 / 0.04), 0 12px 40px rgb(15 17 20 / 0.16);
+  --focus: #2453c7;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0e0f11;
+  --surface: #18191c;
+  --surface-2: #222428;
+  --surface-3: #2a2d33;
+  --separator: #2f3237;
+  --text: #f1f2f4;
+  --text-2: #a3a9b3;
+  --text-3: #8d939d;
+  --accent: #8aabff;
+  --accent-fill: #3b67dd;
+  --accent-soft: #1c2640;
+  --on-accent: #ffffff;
+  --success: #4fcb7a;
+  --success-soft: #16291d;
+  --danger: #ff7a70;
+  --danger-fill: #c9352b;
+  --danger-soft: #34191a;
+  --warning: #f0b455;
+  --warning-soft: #33270f;
+  --backdrop: rgb(0 0 0 / 0.6);
+  --shadow-sheet: 0 0 0 1px rgb(255 255 255 / 0.06), 0 12px 40px rgb(0 0 0 / 0.5);
+  --focus: #8aabff;
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --text-2: #3f444c;
+    --text-3: #4a5059;
+    --separator: #9aa0a9;
+  }
+  :root[data-theme='dark'] {
+    --text-2: #c6cbd3;
+    --text-3: #b3b9c2;
+    --separator: #5a5f67;
+  }
+}
+
+@theme {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-separator: var(--separator);
+  --color-text: var(--text);
+  --color-text-2: var(--text-2);
+  --color-text-3: var(--text-3);
+  --color-accent: var(--accent);
+  --color-accent-fill: var(--accent-fill);
+  --color-accent-soft: var(--accent-soft);
+  --color-on-accent: var(--on-accent);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-danger: var(--danger);
+  --color-danger-fill: var(--danger-fill);
+  --color-danger-soft: var(--danger-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, Roboto, 'Segoe UI',
+    'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', SFMono-Regular, 'Roboto Mono', Menlo, Consolas, monospace;
+
+  /* Type scale (rem; 1rem = 16px, or 17px on iOS where Dynamic Type sets the base) */
+  --text-title-lg: 1.75rem;
+  --text-title-lg--line-height: 2.125rem;
+  --text-title-lg--letter-spacing: -0.01em;
+  --text-title: 1.25rem;
+  --text-title--line-height: 1.625rem;
+  --text-headline: 1.0625rem;
+  --text-headline--line-height: 1.375rem;
+  --text-body: 1rem;
+  --text-body--line-height: 1.5rem;
+  --text-callout: 0.9375rem;
+  --text-callout--line-height: 1.375rem;
+  --text-footnote: 0.8125rem;
+  --text-footnote--line-height: 1.125rem;
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1rem;
+
+  --radius-control: 0.75rem;
+  --radius-card: 1rem;
+  --radius-sheet: 1.25rem;
+
+  --animate-sheet-up: sheet-up 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-fade-in: fade-in 160ms ease-out;
+  --animate-toast-in: toast-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  @keyframes sheet-up {
+    from {
+      transform: translateY(24px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes toast-in {
+    from {
+      transform: translateY(8px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+}
+
+/* iOS/iPadOS Safari: follow the system Dynamic Type size. */
+@supports (font: -apple-system-body) {
+  html {
+    font: -apple-system-body;
+  }
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  background: var(--bg);
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+#root {
+  min-height: 100dvh;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+button,
+[role='button'],
+a {
+  touch-action: manipulation;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+.pb-tabbar {
+  padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+}
+
+@media (min-width: 768px) {
+  .pb-tabbar {
+    padding-bottom: 2.5rem;
+  }
+}
+
+.hairline-b {
+  box-shadow: inset 0 -1px 0 var(--separator);
+}
+.hairline-t {
+  box-shadow: inset 0 1px 0 var(--separator);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Only show drag-and-drop affordances where a precise pointer exists. */
+.pointer-only {
+  display: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .pointer-only {
+    display: revert;
+  }
+}
