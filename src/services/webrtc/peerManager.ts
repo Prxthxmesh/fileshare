@@ -13,8 +13,14 @@ import {
 } from '../pairing/pairingSession';
 import { combineHalves, randomSecretHex } from '../link/linkCrypto';
 import { getDevice, putDevice } from '../storage/deviceRepository';
-import { PeerSession } from './peerConnection';
+import { PeerSession, type PeerDiagnostics } from './peerConnection';
 import type { ControlMessage } from './transferProtocol';
+
+const MAX_ENDED_ATTEMPTS = 5;
+
+export interface EndedAttempt extends PeerDiagnostics {
+  endedAt: number;
+}
 
 export interface PeerMessageHandler {
   onControl(peer: PeerSession, msg: ControlMessage): void;
@@ -29,6 +35,7 @@ export interface PeerMessageHandler {
  */
 class PeerManager {
   private sessions = new Map<string, PeerSession>();
+  private ended: EndedAttempt[] = [];
   private handlers: PeerMessageHandler[] = [];
   private replay = new ReplayGuard();
 
@@ -38,6 +45,11 @@ class PeerManager {
 
   get(id: string) {
     return this.sessions.get(id);
+  }
+
+  /** Attempts that were abandoned before connecting, newest first. */
+  endedAttempts(): EndedAttempt[] {
+    return this.ended;
   }
 
   readyPeers(): PeerSession[] {
@@ -135,6 +147,15 @@ class PeerManager {
   /** Removes a finished session from the UI. */
   dismiss(sessionId: string) {
     const session = this.sessions.get(sessionId);
+    if (session && !session.connectedAt) {
+      // Keep the details of attempts that never connected so Diagnostics can
+      // still explain them after the pairing screen is closed. The connection
+      // states are read synchronously, before close() below changes them.
+      const snapshot = session.diagnostics();
+      void snapshot.then((d) => {
+        this.ended = [{ ...d, endedAt: Date.now() }, ...this.ended].slice(0, MAX_ENDED_ATTEMPTS);
+      });
+    }
     if (session && session.phase !== 'closed' && session.phase !== 'failed') session.close();
     this.sessions.delete(sessionId);
     useConnectionStore.getState().remove(sessionId);

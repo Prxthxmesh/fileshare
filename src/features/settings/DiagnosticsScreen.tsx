@@ -9,7 +9,7 @@ import { hasPersistentCertificate } from '@/services/appContext';
 import { copyText } from '@/services/clipboard/clipboardService';
 import { opfsSupported } from '@/services/transfer/receiveStorage';
 import type { PeerDiagnostics } from '@/services/webrtc/peerConnection';
-import { peerManager } from '@/services/webrtc/peerManager';
+import { peerManager, type EndedAttempt } from '@/services/webrtc/peerManager';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { toast } from '@/stores/uiStore';
@@ -24,6 +24,7 @@ export function DiagnosticsScreen() {
   const peers = useConnectionStore((s) => s.peers);
   const stun = useSettingsStore((s) => s.settings.stunUrl);
   const [diags, setDiags] = useState<Record<string, PeerDiagnostics>>({});
+  const [ended, setEnded] = useState<EndedAttempt[]>([]);
   const [opfs, setOpfs] = useState<boolean | null>(null);
   const caps = detectCapabilities();
   const platform = detectPlatform();
@@ -37,7 +38,9 @@ export function DiagnosticsScreen() {
         const s = peerManager.get(id);
         if (s) next[id] = await s.diagnostics();
       }
-      if (alive) setDiags(next);
+      if (!alive) return;
+      setDiags(next);
+      setEnded([...peerManager.endedAttempts()]);
     };
     void tick();
     const t = window.setInterval(tick, 2000);
@@ -71,8 +74,8 @@ export function DiagnosticsScreen() {
       `STUN: ${stun || 'none (LAN only)'}`,
       ...capabilityRows.map(([k, v]) => `${k}: ${v == null ? 'checking' : v ? 'yes' : 'no'}`),
       '',
-      ...Object.values(diags).flatMap((d) => [
-        `Session (${d.role}) phase=${d.phase} connection=${d.connectionState} ice=${d.iceConnectionState} gathering=${d.iceGatheringState} channel=${d.channelState}`,
+      ...[...Object.values(diags), ...ended].flatMap((d) => [
+        `Session (${d.role})${'endedAt' in d ? ` ended ${new Date(d.endedAt as number).toISOString().slice(11, 19)}` : ''} phase=${d.phase} connection=${d.connectionState} ice=${d.iceConnectionState} gathering=${d.iceGatheringState} channel=${d.channelState}`,
         `  local candidates: ${JSON.stringify(d.localCandidates)} complete=${d.gatheringComplete}`,
         `  remote candidates: ${JSON.stringify(d.remoteCandidates)}`,
         `  route: ${d.selectedPair ? `${d.selectedPair.localType}→${d.selectedPair.remoteType} ${d.selectedPair.protocol} rtt=${d.selectedPair.rttMs}ms` : 'none'}`,
@@ -150,7 +153,7 @@ export function DiagnosticsScreen() {
         </Group>
       </Section>
 
-      {Object.keys(peers).length === 0 ? (
+      {Object.keys(peers).length === 0 && ended.length === 0 ? (
         <div className="rounded-[var(--radius-card)] bg-surface">
           <EmptyState
             icon={<X />}
@@ -159,10 +162,10 @@ export function DiagnosticsScreen() {
           />
         </div>
       ) : (
-        Object.values(diags).map((d, i) => (
+        [...Object.values(diags), ...ended].map((d, i) => (
           <Section
             key={i}
-            title={`Session ${i + 1} · ${d.role === 'offerer' ? 'showed code' : 'scanned code'}`}
+            title={`Session ${i + 1} · ${d.role === 'offerer' ? 'showed code' : 'scanned code'}${'endedAt' in d ? ` · ended ${new Date(d.endedAt as number).toLocaleTimeString()}` : ''}`}
           >
             <Group>
               <Row title="Phase" trailing={d.phase} chevron={false} />
